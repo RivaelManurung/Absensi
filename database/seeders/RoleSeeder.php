@@ -24,14 +24,22 @@ class RoleSeeder extends Seeder
         ];
 
         foreach ($roles as $role) {
-            DB::table('roles')->updateOrInsert(
-                ['name' => $role['name']],
-                [
-                    'id' => (string) Str::uuid(),
-                    'description' => $role['description'],
-                    'created_at' => $now,
-                ]
-            );
+            $existing = DB::table('roles')->where('name', $role['name'])->first();
+
+            if ($existing) {
+                DB::table('roles')
+                    ->where('id', $existing->id)
+                    ->update(['description' => $role['description']]);
+
+                continue;
+            }
+
+            DB::table('roles')->insert([
+                'id' => (string) Str::uuid(),
+                'name' => $role['name'],
+                'description' => $role['description'],
+                'created_at' => $now,
+            ]);
         }
     }
 }
