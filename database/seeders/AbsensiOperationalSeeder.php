@@ -364,14 +364,28 @@ class AbsensiOperationalSeeder extends Seeder
                     ->exists();
 
                 if ($exists) {
-                    continue;
+                    // keep legacy mapping in sync, then ensure Spatie mapping exists
+                } else {
+                    DB::table('user_roles')->insert([
+                        'id' => (string) Str::uuid(),
+                        'user_id' => $userId,
+                        'role_id' => $roleId,
+                    ]);
                 }
 
-                DB::table('user_roles')->insert([
-                    'id' => (string) Str::uuid(),
-                    'user_id' => $userId,
-                    'role_id' => $roleId,
-                ]);
+                $spatieExists = DB::table('model_has_roles')
+                    ->where('role_id', $roleId)
+                    ->where('model_type', \App\Models\User::class)
+                    ->where('model_id', $userId)
+                    ->exists();
+
+                if (! $spatieExists) {
+                    DB::table('model_has_roles')->insert([
+                        'role_id' => $roleId,
+                        'model_type' => \App\Models\User::class,
+                        'model_id' => $userId,
+                    ]);
+                }
             }
         }
     }

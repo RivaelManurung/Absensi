@@ -3,37 +3,33 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Services\AttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AttendanceController extends Controller
 {
+    public function __construct(
+        private readonly AttendanceService $attendanceService
+    ) {
+    }
+
     public function index(): View
     {
-        $rows = DB::table('attendances')
-            ->join('employees', 'employees.id', '=', 'attendances.employee_id')
-            ->orderByDesc('attendances.attendance_date')
-            ->orderByDesc('attendances.created_at')
-            ->limit(100)
-            ->get([
-                'attendances.attendance_date',
-                'employees.employee_code',
-                'attendances.check_in_time',
-                'attendances.check_out_time',
-                'attendances.status',
+        $rows = $this->attendanceService
+            ->list(100)
+            ->items();
+
+        $rows = collect($rows)
+            ->map(fn ($item) => [
+                (string) $item->attendance_date?->format('Y-m-d'),
+                $item->employee?->employee_code ?? '-',
+                $item->check_in_time ? $item->check_in_time->format('H:i') : '-',
+                $item->check_out_time ? $item->check_out_time->format('H:i') : '-',
+                ucfirst((string) ($item->status ?? '-')),
             ])
-            ->map(function ($row) {
-                return [
-                    $row->attendance_date,
-                    $row->employee_code,
-                    $row->check_in_time ? now()->parse($row->check_in_time)->format('H:i') : '-',
-                    $row->check_out_time ? now()->parse($row->check_out_time)->format('H:i') : '-',
-                    ucfirst((string) ($row->status ?? '-')),
-                ];
-            })
             ->all();
 
         return view('attendance.index', ['rows' => $rows]);
@@ -41,9 +37,7 @@ class AttendanceController extends Controller
 
     public function create(): View
     {
-        $employees = DB::table('employees')
-            ->orderBy('employee_code')
-            ->get(['id', 'employee_code']);
+        $employees = $this->attendanceService->employeesForForm();
 
         return view('attendance.create', ['employees' => $employees]);
     }
@@ -69,23 +63,25 @@ class AttendanceController extends Controller
             ])->withInput();
         }
 
-        DB::table('attendances')->insert([
-            'id' => (string) Str::uuid(),
+        $this->attendanceService->create([
             'employee_id' => $data['employee_id'],
             'attendance_date' => $data['attendance_date'],
             'check_in_time' => $data['check_in_time'] ?? null,
             'check_out_time' => $data['check_out_time'] ?? null,
             'status' => strtolower($data['status']),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        ], $request);
 
         return redirect()->route('attendance.index')->with('success', 'Attendance created successfully.');
     }
 
-    public function report(): View
+    public function report(Request $request): View
     {
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+
         $summary = DB::table('attendances')
+            ->when($startDate, fn ($query) => $query->whereDate('attendance_date', '>=', $startDate))
+            ->when($endDate, fn ($query) => $query->whereDate('attendance_date', '<=', $endDate))
             ->selectRaw("SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_count")
             ->selectRaw("SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_count")
             ->selectRaw("SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_count")
@@ -100,6 +96,8 @@ class AttendanceController extends Controller
         $rows = DB::table('attendances')
             ->join('employees', 'employees.id', '=', 'attendances.employee_id')
             ->join('departments', 'departments.id', '=', 'employees.department_id')
+            ->when($startDate, fn ($query) => $query->whereDate('attendances.attendance_date', '>=', $startDate))
+            ->when($endDate, fn ($query) => $query->whereDate('attendances.attendance_date', '<=', $endDate))
             ->select(
                 'departments.name as department_name',
                 DB::raw("SUM(CASE WHEN attendances.status = 'present' THEN 1 ELSE 0 END) as present_count"),
@@ -122,6 +120,8 @@ class AttendanceController extends Controller
             'lateRate' => $lateRate,
             'absenceRate' => $absenceRate,
             'overtimeCount' => 0,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
             'rows' => $rows,
         ]);
     }

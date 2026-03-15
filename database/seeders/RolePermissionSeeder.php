@@ -18,20 +18,40 @@ class RolePermissionSeeder extends Seeder
 
         $matrix = [
             'Admin' => [
+                'users.view',
+                'users.create',
+                'users.update',
+                'users.delete',
+                'users.reset-password',
+                'employees.view',
+                'employees.create',
+                'employees.update',
+                'employees.delete',
                 'attendance.create',
                 'attendance.view',
                 'attendance.approve',
-                'employee.create',
-                'employee.update',
-                'employee.delete',
-                'report.view',
+                'barcodes.view',
+                'barcodes.create',
+                'barcodes.update',
+                'barcodes.delete',
+                'activity-logs.view',
+                'roles.view',
+                'permissions.view',
             ],
             'HR' => [
+                'users.view',
+                'users.create',
+                'users.update',
+                'users.reset-password',
+                'employees.view',
+                'employees.create',
+                'employees.update',
                 'attendance.view',
                 'attendance.approve',
-                'employee.create',
-                'employee.update',
-                'report.view',
+                'barcodes.view',
+                'barcodes.create',
+                'barcodes.update',
+                'activity-logs.view',
             ],
             'Employee' => [
                 'attendance.create',
@@ -40,12 +60,14 @@ class RolePermissionSeeder extends Seeder
             'Supervisor' => [
                 'attendance.view',
                 'attendance.approve',
-                'report.view',
+                'barcodes.view',
             ],
             'Manager' => [
+                'employees.view',
                 'attendance.view',
                 'attendance.approve',
-                'report.view',
+                'barcodes.view',
+                'activity-logs.view',
             ],
         ];
 
@@ -71,6 +93,18 @@ class RolePermissionSeeder extends Seeder
                 if (! $exists) {
                     DB::table('role_permissions')->insert([
                         'id' => (string) Str::uuid(),
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                    ]);
+                }
+
+                $spatieExists = DB::table('role_has_permissions')
+                    ->where('role_id', $roleId)
+                    ->where('permission_id', $permissionId)
+                    ->exists();
+
+                if (! $spatieExists) {
+                    DB::table('role_has_permissions')->insert([
                         'role_id' => $roleId,
                         'permission_id' => $permissionId,
                     ]);

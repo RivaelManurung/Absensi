@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +43,8 @@ class AuthController extends Controller
             ]);
         }
 
+        $this->syncLegacyRolesToSpatie((string) Auth::id());
+
         return redirect()->route('dashboard.index')->with('success', 'Login successful.');
     }
 
@@ -52,5 +56,26 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login')->with('success', 'You have logged out.');
+    }
+
+    private function syncLegacyRolesToSpatie(string $userId): void
+    {
+        $user = Auth::user();
+
+        if (! ($user instanceof User) || $user->getRoleNames()->isNotEmpty()) {
+            return;
+        }
+
+        $legacyRoleNames = DB::table('user_roles')
+            ->join('roles', 'roles.id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', $userId)
+            ->pluck('roles.name')
+            ->filter(fn ($role) => is_string($role) && $role !== '')
+            ->values()
+            ->all();
+
+        if (! empty($legacyRoleNames)) {
+            $user->syncRoles($legacyRoleNames);
+        }
     }
 }

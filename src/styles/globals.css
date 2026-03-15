@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@source '../**/*.{ts,tsx,js,jsx,blade.php}';
+@source '../../resources/views/**/*.blade.php';
+
+@theme {
+  --font-sans: 'Sora', ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #0a0c10;
+  --color-foreground: #e9ecf4;
+  --color-card: #11141a;
+  --color-border: #242a36;
+  --color-primary: #f2f5ff;
+  --color-primary-foreground: #0f1220;
+  --color-muted: #191d26;
+  --color-muted-foreground: #9da6ba;
+  --color-input: #0f131a;
+  --color-ring: #93a4ff;
+  --color-secondary: #1b202b;
+  --color-sidebar: #0b0e13;
+  --color-sidebar-foreground: #e7eaf3;
+}
+
+:root {
+  --color-background: #f5f7fb;
+  --color-foreground: #121725;
+  --color-card: #ffffff;
+  --color-border: #d6dce8;
+  --color-primary: #101426;
+  --color-primary-foreground: #f1f4ff;
+  --color-muted: #eef1f7;
+  --color-muted-foreground: #4f5b74;
+  --color-input: #ffffff;
+  --color-ring: #4e66ff;
+  --color-secondary: #e9edf6;
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #101426;
+  color-scheme: light;
+}
+
+.dark {
+  --color-background: #0a0c10;
+  --color-foreground: #e9ecf4;
+  --color-card: #11141a;
+  --color-border: #242a36;
+  --color-primary: #f2f5ff;
+  --color-primary-foreground: #0f1220;
+  --color-muted: #191d26;
+  --color-muted-foreground: #9da6ba;
+  --color-input: #0f131a;
+  --color-ring: #93a4ff;
+  --color-secondary: #1b202b;
+  --color-sidebar: #0b0e13;
+  --color-sidebar-foreground: #e7eaf3;
+  color-scheme: dark;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(80rem 40rem at 0% -10%, rgba(104, 122, 255, 0.15), transparent),
+    radial-gradient(70rem 40rem at 100% 0%, rgba(102, 255, 204, 0.08), transparent),
+    var(--color-background);
+  color: var(--color-foreground);
+}
+
+.chart-shell {
+  background-image:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 56px, 120px 100%;
+  background-position: 0 0, 0 0;
+}
+
+.chart-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80%;
+  border-radius: 9999px 9999px 0 0;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.65));
+  transform-origin: bottom center;
+  animation: floatWave 10s ease-in-out infinite;
+}
+
+.chart-wave-1 {
+  clip-path: ellipse(65% 45% at 50% 60%);
+}
+
+.chart-wave-2 {
+  opacity: 0.6;
+  animation-delay: -2s;
+  clip-path: ellipse(70% 42% at 50% 72%);
+}
+
+@keyframes floatWave {
+  0%,
+  100% {
+    transform: translateY(2%) scaleX(1);
+  }
+  50% {
+    transform: translateY(-2%) scaleX(1.01);
+  }
+}
+
+@media (max-width: 768px) {
+  .chart-wave {
+    height: 70%;
+  }
+}

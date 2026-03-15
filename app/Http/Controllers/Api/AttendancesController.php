@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AttendancesController extends BaseCrudController
@@ -24,6 +27,74 @@ class AttendancesController extends BaseCrudController
 
     protected bool $usesCreatedAt = true;
     protected bool $usesUpdatedAt = true;
+
+    public function index(Request $request): JsonResponse
+    {
+        $perPage = (int) $request->integer('per_page', 15);
+        $perPage = max(1, min($perPage, 100));
+
+        $query = DB::table('attendances')
+            ->leftJoin('employees', 'employees.id', '=', 'attendances.employee_id')
+            ->leftJoin('users', 'users.id', '=', 'employees.user_id')
+            ->select([
+                'attendances.id',
+                'attendances.employee_id',
+                'attendances.attendance_date',
+                'attendances.check_in_time',
+                'attendances.check_out_time',
+                'attendances.check_in_lat',
+                'attendances.check_in_lng',
+                'attendances.check_out_lat',
+                'attendances.check_out_lng',
+                'attendances.check_in_method',
+                'attendances.check_out_method',
+                'attendances.status',
+                'attendances.created_at',
+                'attendances.updated_at',
+                'employees.employee_code',
+                'users.name as employee_name',
+            ]);
+
+        $search = trim($request->string('query')->toString());
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search): void {
+                $builder->where('users.name', 'like', "%{$search}%")
+                    ->orWhere('attendances.status', 'like', "%{$search}%")
+                    ->orWhere('employees.employee_code', 'like', "%{$search}%");
+            });
+        }
+
+        $date = trim($request->string('date')->toString());
+        if ($date !== '') {
+            $query->whereDate('attendances.attendance_date', $date);
+        }
+
+        $status = trim($request->string('status')->toString());
+        if ($status !== '' && $status !== 'all') {
+            $query->where('attendances.status', $status);
+        }
+
+        $employeeId = trim($request->string('employee_id')->toString());
+        if ($employeeId !== '') {
+            $query->where('attendances.employee_id', $employeeId);
+        }
+
+        $paginator = $query
+            ->orderByDesc('attendances.attendance_date')
+            ->paginate($perPage);
+
+        return response()->json([
+            'data' => collect($paginator->items())
+                ->map(fn ($row) => (array) $row)
+                ->values(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
 
     protected function storeRules(): array
     {

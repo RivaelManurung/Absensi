@@ -29,7 +29,11 @@ class RoleSeeder extends Seeder
             if ($existing) {
                 DB::table('roles')
                     ->where('id', $existing->id)
-                    ->update(['description' => $role['description']]);
+                    ->update([
+                        'description' => $role['description'],
+                        'guard_name' => 'web',
+                        'updated_at' => $now,
+                    ]);
 
                 continue;
             }
@@ -37,8 +41,10 @@ class RoleSeeder extends Seeder
             DB::table('roles')->insert([
                 'id' => (string) Str::uuid(),
                 'name' => $role['name'],
+                'guard_name' => 'web',
                 'description' => $role['description'],
                 'created_at' => $now,
+                'updated_at' => $now,
             ]);
         }
     }
