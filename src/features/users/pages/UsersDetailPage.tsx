@@ -1,16 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
+import { useToast } from "../../../app/providers/ToastProvider";
 import { Button } from "../../../components/ui/button";
+import { getApiErrorMessage } from "../../../lib/apiError";
 import { apiClient } from "../../../services/apiClient";
 import type { ApiDetailResponse, ApiListResponse } from "../../../types/api.types";
 import { activityLogService } from "../../activity-logs/services/activityLogService";
 import type { ActivityLogRecord } from "../../activity-logs/types/activity-log.types";
 import type { EmployeeRecord } from "../../employees/types/employee.types";
 import { attendanceService } from "../../attendance/services/attendanceService";
+import { barcodeService } from "../../barcodes/services/barcodeService";
+import type { BarcodeRecord } from "../../barcodes/types/barcode.types";
 import type { RoleRecord, UserRecord, UserRoleRecord } from "../types/user.types";
 
 export function UsersDetailPage() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const query = useQuery({
     queryKey: ["users-detail", id],
     queryFn: async () => {
@@ -27,6 +33,17 @@ export function UsersDetailPage() {
       const userRole = userRolesResponse.data.data.find((relation) => relation.user_id === user.id);
       const role = rolesResponse.data.data.find((item) => item.id === userRole?.role_id)?.name ?? "-";
       const employee = employeesResponse.data.data.find((item) => item.user_id === user.id);
+      let barcode: BarcodeRecord | null = null;
+
+      if (employee?.id) {
+        const employeeBarcodes = await barcodeService.getBarcodes({ employee_id: employee.id, per_page: 100 });
+        const selectedBarcode = employeeBarcodes.find((item) => item.is_active) ?? employeeBarcodes[0] ?? null;
+
+        if (selectedBarcode?.id) {
+          barcode = await barcodeService.getBarcode(selectedBarcode.id);
+        }
+      }
+
       const attendanceHistory = attendances.filter((item) => item.employee === user.name).slice(0, 10);
       const activity = activityLogs.filter((item: ActivityLogRecord) => item.user_id === user.id).slice(0, 10);
 
@@ -34,11 +51,24 @@ export function UsersDetailPage() {
         user,
         role,
         employee,
+        barcode,
         attendanceHistory,
         activity,
       };
     },
     enabled: typeof id === "string" && id.length > 0,
+  });
+
+  const regenerateBarcode = useMutation({
+    mutationFn: barcodeService.regenerate,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["users-detail", id] });
+      await queryClient.invalidateQueries({ queryKey: ["barcodes"] });
+      toast.success("Barcode berhasil diregenerate.");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Gagal regenerate barcode."));
+    },
   });
 
   if (query.isLoading) {
@@ -67,12 +97,33 @@ export function UsersDetailPage() {
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="mb-4 text-lg font-semibold">Barcode</h2>
         <div className="grid gap-3 text-sm md:grid-cols-2">
-          <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border">Barcode Image</div>
+          <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-border p-3">
+            {detail?.barcode?.qr_image_data_url ? (
+              <img
+                src={detail.barcode.qr_image_data_url}
+                alt={`Barcode ${detail.barcode.code}`}
+                className="h-28 w-28 rounded-md bg-white p-1"
+              />
+            ) : (
+              <span className="text-muted-foreground">Barcode Image</span>
+            )}
+          </div>
           <div className="space-y-2">
-            <p><span className="text-muted-foreground">Barcode Value:</span> ABS-EMP-1001</p>
-            <p><span className="text-muted-foreground">Created Date:</span> -</p>
+            <p><span className="text-muted-foreground">Barcode Value:</span> {detail?.barcode?.code ?? "-"}</p>
+            <p><span className="text-muted-foreground">Created Date:</span> {detail?.barcode?.generated_at?.slice(0, 10) ?? "-"}</p>
             <p><span className="text-muted-foreground">Last Scan:</span> -</p>
-            <Button size="sm" variant="outline">Regenerate Barcode</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!detail?.barcode?.id || regenerateBarcode.isPending}
+              onClick={() => {
+                if (detail?.barcode?.id) {
+                  regenerateBarcode.mutate(detail.barcode.id);
+                }
+              }}
+            >
+              {regenerateBarcode.isPending ? "Regenerating..." : "Regenerate Barcode"}
+            </Button>
           </div>
         </div>
       </section>
